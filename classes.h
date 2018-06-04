@@ -23,11 +23,11 @@ class DataFrame{
 
 	operator = - copies the given DataFrame to calling DataFrame
 
-	trimRowTop() - removes the row at index 0
-	trimRowBottom() - removes the row at index num_rows - 1
+	trimTopRow() - removes the row at index 0
+	trimBottomRow() - removes the row at index num_rows - 1
 	trimRow(int rowIndex) - removes the row with index rowIndex
-	trimColTop() - removes the column with index 0
-	trimColBottom() - removes the column with index num_columns - 1 
+	trimFirstCol() - removes the column with index 0
+	trimLastCol() - removes the column with index num_columns - 1 
 	trimCol(int colIndex) - removes the column with index colIndex
 
 	insertRow(array/DataFrame, index) - inserts the given row at the given index
@@ -109,8 +109,8 @@ public:
 		frame[rowIndex][columnIndex] = value;
 	}
 
-	DataFrame size(){
-		DataFrame s(2);
+	DataFrame<int> size(){
+		DataFrame<int> s(2);
 		s.set(0, 0, num_rows);
 		s.set(0, 1, num_columns);
 		return s;
@@ -128,20 +128,36 @@ public:
 		return frame[rowIndex][columnIndex];
 	}
 
-	DataFrame rowAt(int rowIndex){
-		DataFrame row(frame[rowIndex], num_columns);
+	T max(){
+		T max = frame[0][0];
+		for(int i=0; i<num_rows; i++)
+			for(int j=0; j<num_columns; j++)
+				if(frame[i][j] > max) max = frame[i][j];
+		return max;
+	}
+
+	T min(){
+		T min = frame[0][0];
+		for(int i=0; i<num_rows; i++)
+			for(int j=0; j<num_columns; j++)
+				if(frame[i][j] < min) min = frame[i][j];
+		return min;
+	}
+
+	DataFrame<T> rowAt(int rowIndex){
+		DataFrame<T> row(frame[rowIndex], num_columns);
 		return row;
 	}
 
-	DataFrame columnAt(int columnIndex){
-		DataFrame column(num_rows, 1);
+	DataFrame<T> columnAt(int columnIndex){
+		DataFrame<T> column(num_rows, 1);
 		for(int i=0; i<num_rows; i++)
 			column.set(i,0,frame[i][columnIndex]);
 		return column;
 	}
 
-	DataFrame subFrame(int rowIndex, int columnIndex){
-		DataFrame subframe( num_rows - rowIndex, num_columns - columnIndex );
+	DataFrame<T> subFrame(int rowIndex, int columnIndex){
+		DataFrame<T> subframe( num_rows - rowIndex, num_columns - columnIndex );
 		for(int i=rowIndex, m=0; i<num_rows; i++, m++){
 			for(int j=columnIndex, n=0; j<num_columns; j++, n++)
 				subframe.set(m, n, frame[i][j]);
@@ -149,8 +165,8 @@ public:
 		return subframe;
 	}
 
-	DataFrame subFrame(int rowIndexBeg, int columnIndexBeg, int rowIndexEnd, int columnIndexEnd){
-		DataFrame subframe( rowIndexEnd - rowIndexBeg + 1, columnIndexEnd - columnIndexBeg + 1);
+	DataFrame<T> subFrame(int rowIndexBeg, int columnIndexBeg, int rowIndexEnd, int columnIndexEnd){
+		DataFrame<T> subframe( rowIndexEnd - rowIndexBeg + 1, columnIndexEnd - columnIndexBeg + 1);
 		for(int i=rowIndexBeg, m=0; i<rowIndexEnd; i++, m++){
 			for(int j=columnIndexBeg, n=0; j<columnIndexEnd; j++, n++)
 				subframe.set(m, n, frame[i][j]);
@@ -158,14 +174,224 @@ public:
 		return subframe;
 	}
 
-	friend ostream& operator << (ostream &out, const DataFrame &d){
-		for(int i=0; i<d.num_rows; i++){ 
-			for(int j=0; j<d.num_columns; j++)
-				out<<d.frame[i][j]<<" ";
-			out<<endl;
+	void trimTopRow(){
+		if(num_rows >= 1){
+			for(int i=0; i+1<num_rows; i++){
+				for(int j=0; j<num_columns; j++){
+					frame[i][j] = frame[i+1][j];
+				}
+			}
+			delete frame[num_rows - 1];
+			num_rows--;
+			if(num_rows == 0) num_columns = 0;
 		}
-		return out;
 	}
+	void trimBottomRow(){
+		if(num_rows >= 1){
+			delete frame[num_rows - 1];
+			num_rows--;
+			if(num_rows == 0) num_columns = 0;
+		}
+	}
+	void trimRow(int rowIndex){
+		if(num_rows >= 1){
+			if(rowIndex >= 0 && rowIndex < num_rows){
+				for(int i=rowIndex; i+1<num_rows; i++){
+					for(int j=0; j<num_columns; j++){
+						frame[i][j] = frame[i+1][j];
+					}
+				}
+				delete frame[num_rows - 1];
+				num_rows--;
+				if(num_rows == 0) num_columns = 0;			
+			}
+		}
+	}
+
+	void trimFirstColumn(){
+		if(num_columns >= 1){
+			for(int j=0; j+1<num_columns; j++){
+				for(int i=0; i<num_rows; i++){
+					frame[i][j] = frame[i][j+1];
+				}
+			}
+			num_columns--;
+			if(num_columns == 0) num_rows = 0;
+		}
+	}
+	void trimLastColumn(){
+		if(num_columns >= 1){
+			num_columns--;
+			if(num_columns == 0) num_rows = 0;			
+		}
+	}
+	void trimColumn(int columnIndex){
+		if(num_columns >= 1){
+			if(columnIndex >= 0 && columnIndex < num_columns){
+				for(int j=columnIndex; j+1<num_columns; j++){
+					for(int i=0; i<num_rows; i++){
+						frame[i][j] = frame[i][j+1];
+					}
+				}
+				num_columns--;
+				if(num_columns == 0) num_rows = 0;				
+			}
+		}
+	}
+
+	DataFrame<T> transpose(){
+		DataFrame<T> d(num_columns, num_rows);
+		for(int i=0; i<num_rows; i++)
+			for(int j=0; j<num_columns; j++)
+				d.frame[j][i] = frame[i][j];
+		return d;
+	}
+
+	void normalize(){
+		double mean = 0;
+		T max = frame[0][0], min = frame[0][0];
+		for(int i=0; i<num_rows; i++){
+			for(int j=0; j<num_columns; j++){
+				mean += frame[i][j];
+				if(frame[i][j] > max) max = frame[i][j];
+				if(frame[i][j] < min) min = frame[i][j];
+			}
+		}
+		mean /= num_rows*num_columns;
+		double range = max - min;
+		if(range==0) range = 1;
+		for(int i=0; i<num_rows; i++){
+			for(int j=0; j<num_columns; j++){
+				frame[i][j] = double(double(frame[i][j]) - mean)/range;
+			}
+		}				
+	}
+
+	void normalizeRowWise(){
+		for(int i=0; i<num_rows; i++){
+			double mean = 0;
+			T max, min = frame[i][0];
+			for(int j=0; j<num_columns; j++){
+				mean += frame[i][j];
+				if(frame[i][j] > max) max = frame[i][j];
+				if(frame[i][j] < min) min = frame[i][j];
+			}
+			mean /= num_columns;
+			double range = max - min;
+			if(range==0) range = 1;
+			for(int j=0; j<num_columns; j++){
+				frame[i][j] = double(double(frame[i][j]) - mean)/range;
+			}
+		}
+	}
+
+	void normalizeColumnWise(){
+		for(int j=0; j<num_columns; j++){
+			double mean = 0;
+			T max, min = frame[0][j];
+			for(int i=0; i<num_rows; i++){
+				mean += frame[i][j];
+				if(frame[i][j] > max) max = frame[i][j];
+				if(frame[i][j] < min) min = frame[i][j];
+			}
+			mean /= num_rows;
+			double range = max - min;
+			if(range==0) range = 1;
+			for(int i=0; i<num_rows; i++){
+				frame[i][j] = double(double(frame[i][j]) - mean)/range;
+			}
+		}
+	}
+
+	void normalizeRow(int rowIndex){
+		double mean = 0;
+		T max, min = frame[rowIndex][0];
+		for(int j=0; j<num_columns; j++){
+			mean += frame[rowIndex][j];
+			if(frame[rowIndex][j] > max) max = frame[rowIndex][j];
+			if(frame[rowIndex][j] < min) min = frame[rowIndex][j];
+		}
+		mean /= num_columns;
+		double range = max - min;
+		if(range==0) range = 1;
+		for(int j=0; j<num_columns; j++){
+			frame[rowIndex][j] = double(double(frame[rowIndex][j]) - mean)/range;
+		}
+
+	}
+
+	void normalizeColumn(int columnIndex){
+		double mean = 0;
+		T max, min = frame[0][columnIndex];
+		for(int i=0; i<num_rows; i++){
+			mean += frame[i][columnIndex];
+			if(frame[i][columnIndex] > max) max = frame[i][columnIndex];
+			if(frame[i][columnIndex] < min) min = frame[i][columnIndex];
+		}
+		mean /= num_rows;
+		double range = max - min;
+		if(range==0) range = 1;
+		for(int i=0; i<num_rows; i++){
+			frame[i][columnIndex] = double(double(frame[i][columnIndex]) - mean)/range;
+		}		
+	}
+/*	DataFrame<double> normalize(){
+		DataFrame<double> norm(num_rows, num_columns);
+		double mean = 0;
+		T max = frame[0][0], min = frame[0][0];
+		for(int i=0; i<num_rows; i++){
+			for(int j=0; j<num_columns; j++){
+				mean += frame[i][j];
+				if(frame[i][j] > max) max = frame[i][j];
+				if(frame[i][j] < min) min = frame[i][j];
+			}
+		}
+		mean /= num_rows*num_columns;
+		double range = max - min;
+		for(int i=0; i<num_rows; i++){
+			for(int j=0; j<num_columns; j++){
+				norm.set(i, j, double(double(frame[i][j]) - mean)/range);
+			}
+		}		
+		return norm;
+	}
+*/
+	DataFrame operator + (const DataFrame &d){
+		DataFrame sum(num_rows, num_columns);
+		if(num_rows == d.num_rows && num_columns == d.num_columns){
+			for(int i=0; i<num_rows; i++){
+				for(int j=0; j<num_columns; j++)
+					sum.set(i, j, frame[i][j] + d.frame[i][j]);
+			}
+		}
+		return sum;
+	}
+
+	DataFrame operator - (const DataFrame &d){
+		DataFrame diff(num_rows, num_columns);
+		if(num_rows == d.num_rows && num_columns == d.num_columns){
+			for(int i=0; i<num_rows; i++){
+				for(int j=0; j<num_columns; j++)
+					diff.set(i, j, frame[i][j] - d.frame[i][j]);
+			}
+		}
+		return diff;
+	}
+
+	DataFrame operator * (const DataFrame &d){
+		DataFrame product(num_rows, d.num_columns);
+		if(num_columns == d.num_rows){
+			for(int i=0; i<num_rows; i++){
+				for(int j=0; j<d.num_columns; j++){
+					product.frame[i][j]=0;
+					for(int k=0; k<num_columns; k++)
+						product.frame[i][j] += frame[i][k]*d.frame[k][j];
+				}
+			}
+		}
+		return product;
+	}
+
 	void operator = (const DataFrame &d){
 		num_rows = d.num_rows;
 		num_columns = d.num_columns;
@@ -178,6 +404,14 @@ public:
 		}
 	}	
 
+	friend ostream& operator << (ostream &out, const DataFrame &d){
+		for(int i=0; i<d.num_rows; i++){ 
+			for(int j=0; j<d.num_columns; j++)
+				out<<d.frame[i][j]<<" ";
+			out<<endl;
+		}
+		return out;
+	}
 };
 
 class IO{/*
